@@ -11,31 +11,31 @@ import matplotlib.patches as patches
 import env, plotting, utils, QueueFIFO
 
 
-# 点结构
+# Node and Edge Structure
 class Node:
     def __init__(self, n):
-        self.x = n[0] # x,y为坐标
+        self.x = n[0] # x,y coordinate
         self.y = n[1]
-        self.parent = None # parent,child为路径中的上一点和下一点
+        self.parent = None # parent,child are the last node and next node 
         self.child = None
-        self.flag = "VALID" # 无效标记
-        self.edge = [] # 拥有的边
-        self.visit = False # 遍历用
+        self.flag = "VALID" # Validation Mark
+        self.edge = [] # the edges own by this node
+        self.visit = False # Traversal Mark
 
 class Edge:
     def __init__(self, n_p, n_c):
-        self.n1 = n_p # n1, n2 边的两个点
+        self.n1 = n_p # n1, n2 are two nodes of edge
         self.n2 = n_c
-        self.flag = "VALID" # 无效标记
+        self.flag = "VALID" # Validation Mark
 
 
-# 双向生成动态避障算法
+# Dynamic Bidirectional Generation Obstacle Avoidance Algorithm
 class DynamicRrtConnect:
 
-    # 初始化函数：初始化类成员变量及需要的环境
+    # Initialize class member variables and the required environment
     def __init__(self, s_start, s_goal,
                 step_len = 0.8, goal_sample_rate = 0.05, waypoint_sample_rate = 0.65, iter_max = 5000, bs_degree = 3):
-        # 将参数初始化到self中
+        # Initializes parameters
         self.s_start = Node(s_start)
         self.s_goal = Node(s_goal)
         self.step_len = step_len
@@ -44,7 +44,7 @@ class DynamicRrtConnect:
         self.iter_max = iter_max
         self.bs_degree = bs_degree
         
-        # 初始化过程变量
+        # Initialize in-using variables
         self.V1 = [self.s_start]
         self.V2 = [self.s_goal]
         self.vertex = []
@@ -55,31 +55,35 @@ class DynamicRrtConnect:
         self.edges = []
         self.edges_coor = []
 
-        # 初始化作图环境和变量
+        # Initialize the graph environment and variables
         self.env = env.Env()
         self.plotting = plotting.Plotting(s_start, s_goal)
         self.utils = utils.Utils()
         self.fig, self.ax = plt.subplots()
-        self.x_range = self.env.x_range # 注意此处的range与输入的起点终点无关，它被env.py中的init函数所规定的了。
-        self.y_range = self.env.y_range # 如果想要修改，请注意同时修改env中的绘图区域和on_press函数中的判断范围
-        self.obs_circle = self.env.obs_circle  #circle， rectangle， boundary同样如此
+        self.x_range = self.env.x_range 
+        # Please note that the range here is specified by the init function in env.py.
+        # It does not matter what's the start point or end point in the input.
+        # If you want to change this, be careful to change both the drawing area in env and the judgment range in the on_press function.
+        self.y_range = self.env.y_range
+        # So does circle, rectangle, boundary
+        self.obs_circle = self.env.obs_circle 
         self.obs_rectangle = self.env.obs_rectangle
         self.obs_boundary = self.env.obs_boundary
         self.obs_add = [0, 0, 0]
         self.path = []
         self.waypoint = []
 
-    # 首次绘制函数：首次绘制rrt图，第一次绘制和rrt_connect双向生成算法无结果区别
+    # First-time draw function: The first draw rrt graph, the first-time draw and rrt_connect bidirectional generation algorithm has no result difference
     def planning(self):
-        t1 = time.time() #计时器
+        t1 = time.time() # set a timer
         for i in range(self.iter_max):
             last_node, node_v1_new = self.rrt_connect_inuse()
 
             if self.is_node_same(last_node, node_v1_new):
-                #连线完成，提取路径，绘图。
+                # Line complete, extract path, plot.
                 self.vertex, self.edges = list(self.V1 + self.V2), list(self.E1 + self.E2)
                 self.path, self.waypoint = self.extract_path(node_v1_new, last_node)
-                t2 = time.time() #计时器
+                t2 = time.time() # set another timer
                 print('The program runs: %s seconds' % (t2 - t1))
 
                 self.plot_grid("Dynamic_RRT_CONNECT")
@@ -95,12 +99,12 @@ class DynamicRrtConnect:
                 self.V1, self.V2 = self.V2, self.V1
                 self.E1, self.E2 = self.E2, self.E1
 
-        # 计算iter_max次仍无结果返回None
+        # None is returned when iter_max times have been computed
         return None
 
-    # 点击事件函数：处理鼠标单击屏幕区域后的函数
+    # Click event function: function that handles mouse clicks on an area of the screen
     def on_press(self, event):
-        t1 = time.time() #计时器
+        t1 = time.time() # timer
         x, y = event.xdata, event.ydata
         if x < 0 or x > 50 or y < 0 or y > 30:
             print("Please choose right area!")
@@ -116,13 +120,13 @@ class DynamicRrtConnect:
   
                 print("Path is Replanning ...")
                 self.replanning()
-                t2 = time.time() #计时器
+                t2 = time.time() #timer
                 print('The program runs: %s seconds' % (t2 - t1))
                 print("len_vertex: ", len(self.vertex))
                 print("len_vertex_old: ", len(self.vertex_old))
                 print("len_vertex_new: ", len(self.vertex_new))
 
-                # 清空所有内容，重新画图
+                # clear everything, re-plot
                 plt.cla()
                 self.utils = utils.Utils()
                 self.plot_grid("Dynamic_RRT_CONNECT")
@@ -143,7 +147,7 @@ class DynamicRrtConnect:
 
             self.fig.canvas.draw_idle()
 
-    # 无效点函数：发现无效边和无效点，并给予INVALID标记
+    # INVALID point function: Finds invalid edges and invalid points and marks them invalid
     def InvalidateNodes(self):
         for edge in self.edges:
             if (not edge.n1 or edge.n1.flag == "INVALID") or (not edge.n2 or edge.n2.flag == "INVALID"): # 有任一点无效则边无效
@@ -165,17 +169,18 @@ class DynamicRrtConnect:
                 node.parent = None
             if (node.child and node.child.flag == "INVALID"):
                 node.child = None
-            if (not node.parent) and (not node.child): # 既无父节点又无子节点的点无效
+            if (not node.parent) and (not node.child):
+               # a node is invalid when it has no parents nor children
                 node.flag = "INVALID"
                 
 
-    # 路径有效检查：如果过程点有无效的，则路径无效
+    # Path validity check: If any of the process points are invalid, the path is invalid
     def is_path_invalid(self):
         for node in self.waypoint:
             if node.flag == "INVALID":
                 return True
 
-    # 障碍共线检查：检查添加的obs_add是否与 start/end两点组成的线段区域重合。
+    # obstacles collinear check: check whether obs_add coincides with the line segment consisting of two points: start and end.
     def is_collision_obs_add(self, start, end):
         delta = self.utils.delta
         obs_add = self.obs_add
@@ -192,9 +197,9 @@ class DynamicRrtConnect:
 
         return False
 
-    # 重新绘制函数：算法和首次绘制时基本相同，不再重复注释。重新绘制时不同的是：首次绘制V1和V2分别只有起点终点，
-    #              而重新绘制时的V1 V2来自于TrimRRT函数回收的从起点终点分别出发的搜索树。
-    #              （此函数无绘图，绘图在on_press完成）
+    # Re-Plan function: The algorithm is basically the same as when it was first drawn, no more repeated comments. The difference when redrawing is that V1 and V2 only have the starting point and the end point respectively for the first time.
+    # And the V1 V2 in redrawing comes from the search tree recovered by the TrimRRT function from the starting point and the end point respectively.
+    # (This function does not actually draw, the drawing is done in on_press)
     def replanning(self):
         
         self.TrimRRT()
@@ -218,7 +223,7 @@ class DynamicRrtConnect:
 
         return None
 
-    # 剪枝函数：去除存储的所有无效边和点，重新记录有效边和点。
+    # Pruning function: removes all invalid edges and points stored and re-records valid edges and points.
     def TrimRRT(self):
         numNodeEdge = len(self.edges) + len(self.vertex);
         # 清理无效点
@@ -268,7 +273,7 @@ class DynamicRrtConnect:
             self.V1, self.V2 = self.V2, self.V1
             self.E1, self.E2 = self.E2, self.E1
 
-    # 搜集节点树：从search_node出发，搜索可以到达的节点存到vertex_list中，而边存放到edge_list中。
+    # Collect node tree: Starting from search_node, search reachable nodes are stored in vertex_list, and edges are stored in edge_list.
     @staticmethod
     def gatherNodeTree(search_node, vertex_list, edge_list, edges_coor):
         vertex_list.clear()
@@ -301,7 +306,7 @@ class DynamicRrtConnect:
 
         return
 
-    # 生成随机点：生成区域范围内一个随机点
+    # Generate random point
     def generate_random_node(self, goal_sample_rate):
         delta = self.utils.delta #来自utils.py里的delta值（现为0.5）
 
@@ -311,7 +316,7 @@ class DynamicRrtConnect:
 
         return self.s_goal
 
-    # 重新生成路径上的随机点：生成区域范围内一个随机点，但是有一定概率随机取路径上已有的点
+    # Regenerate random points on the path: Generate a random point in the range of the region, but there is a certain probability of randomly taking the existing points on the path
     def generate_random_node_replanning(self, goal_sample_rate, waypoint_sample_rate):
         delta = self.utils.delta
         p = np.random.random()
@@ -324,7 +329,7 @@ class DynamicRrtConnect:
             return Node((np.random.uniform(self.x_range[0] + delta, self.x_range[1] - delta),
                          np.random.uniform(self.y_range[0] + delta, self.y_range[1] - delta)))
 
-    # 核心搜索算法：
+    # Core search algorithm:
     def rrt_connect_inuse(self):
         #根据V1点集和最近邻的方法，随机生成新点node_v1_new
         node_rand = self.generate_random_node(self.goal_sample_rate)
@@ -369,21 +374,21 @@ class DynamicRrtConnect:
 
         return last_node, node_v1_new
 
-    # 最近邻点函数：返回node_list中离点n最近的点
+    # Nearest neighbor function: Returns the point closest to point n in the node list
     @staticmethod
     def nearest_neighbor(node_list, n):
         return node_list[int(np.argmin([math.hypot(nd.x - n.x, nd.y - n.y)
                                         for nd in node_list]))]
 
-    # 同点函数：检查node1m和node2是否坐标相同
+    # Same point function: check whether node1 and node2 have the same coordinates
     @staticmethod
     def is_node_same(node1, node2):
         if node1.x == node2.x and node1.y == node2.y:
             return True
         return False
 
-    # 生成新点：有时候随机生成的点会远于step_len，
-    #          这样我们就要在这个方向上走step_len距离，取得新点，而不是直接取随机生成的点。
+    # Generate new points: Sometimes randomly generated points will be far away from step_len,
+    # So we have to go step_len distance in this direction to get new points, instead of directly taking randomly generated points.
     def new_state(self, node_start, node_end):
         dist, theta = self.get_distance_and_angle(node_start, node_end)
 
@@ -394,49 +399,49 @@ class DynamicRrtConnect:
         node_new.parent.child = node_new
         return node_new
 
-    # 提取路径函数：获取从node_v1_new和node_v2_prim，从起点到终点的整条路径。
+    # Extract the path function: Get the entire path from the start to the end from node_v1_new and node_v2_prim.
     @staticmethod
     def extract_path(node_v1_new, node_v2_prim):
-        # node_v1_new和node_v2_prim是坐标相同的两个点。
-        # 正常的路径应为：
+        # node_v1_new and node_v2_prim are two points with same coordinates.
+        # The correct path is:
         # [s_start, ..., node_v1_new] + [node_v2_prim, ..., s_goal]
-        # 或者是（V1和V2有可能颠倒）：
+        # Or（V1 and V2 may be in reversed order）：
         # [s_start, ..., node_v2_prim] + [node_v1_new, ..., s_goal]
-        # 由于node_v1_new和 node_v2_prim到起点和终点有父子关系，通过child-parent指针可以获得链表。
+        # Since node_v1_new and node_v2_prim have parent-child relationships to the start and end points, a linked list can be obtained through the child-parent pointer.
         waypoint1 = [node_v1_new]
         path1 = [(node_v1_new.x, node_v1_new.y)]
         node_now = node_v1_new
-        while node_now.parent is not None: #往父节点遍历，获得路径
+        while node_now.parent is not None: # Walk through the parent node to get the path
             node_now = node_now.parent
             path1.append((node_now.x, node_now.y))
             waypoint1.append(node_now)
 
-        #node_v1_new和node_v2_prim是坐标相同的两个点，去除重复的首项
-        #waypoint2 = [node_v2_prim]
-        #path2 = [(node_v2_prim.x, node_v2_prim.y)]
+        # node_v1_new and node_v2_prim are two points with the same coordinates, removing the duplicate first term
+        # waypoint2 = [node_v2_prim]
+        # path2 = [(node_v2_prim.x, node_v2_prim.y)]
         waypoint2 = []
         path2 = []
         node_now = node_v2_prim
-        while node_now.parent is not None: #往父节点遍历，获得路径
+        while node_now.parent is not None: # Walk through the parent node to get the path
             node_now = node_now.parent
             path2.append((node_now.x, node_now.y))
             waypoint2.append(node_now)
 
-        #首尾相接
+        # nose to tail
         waypoint1[-1].child = waypoint2[0]
         waypoint2[0].parent = waypoint1[-1]
 
         return list(list(reversed(path1)) + path2), list(list(reversed(waypoint1)) + waypoint2)
-        #注意返回值有两个，返回第一项path是坐标值的list，第二项waypoint的Node对象的List
+        # Note that there are two return values, the first list where path is the coordinate value, and the second List where waypoint is the Node object
 
-    # 距离与角度函数：计算从点node_start到node_end的欧氏距离和角度
+    # Distance and Angle function: Calculates the Euclidean distance and Angle from node_start to node_end
     @staticmethod
     def get_distance_and_angle(node_start, node_end):
         dx = node_end.x - node_start.x
         dy = node_end.y - node_start.y
         return math.hypot(dx, dy), math.atan2(dy, dx)
 
-    # 绘制网格函数
+    # Draw grid function
     def plot_grid(self, name):
         for (ox, oy, w, h) in self.obs_boundary:
             self.ax.add_patch(
@@ -473,26 +478,7 @@ class DynamicRrtConnect:
 
         plt.title(name)
         plt.axis("equal")
-        '''
-    def plot_visited(self, animation=True):
-        if animation:
-            count = 0
-            for node in self.vertex:
-                count += 1
-                for nextNode in [node.parent, node.child]:
-                    if nextNode:
-                        plt.plot([nextNode.x, node.x], [nextNode.y, node.y], "-g")
-                        plt.gcf().canvas.mpl_connect('key_release_event',
-                                                     lambda event:
-                                                     [exit(0) if event.key == 'escape' else None])
-                        if count % 10 == 0:
-                            plt.pause(0.001)
-        else:
-            for node in self.vertex:
-                for nextNode in [node.parent, node.child]:
-                    if nextNode:
-                        plt.plot([nextNode.x, node.x], [nextNode.y, node.y], "-g")
-        '''
+
     def plot_visited(self, animation=True):
         if animation:
             count = 0
@@ -514,7 +500,7 @@ class DynamicRrtConnect:
                         continue
                     plt.plot([node.parent.x, node.x], [node.parent.y, node.y], "-g")
 
-    # 绘制旧节点函数
+    # Draw old nodes function
     def plot_vertex_old(self):
         for node in self.vertex_old:
             for nextNode in [node.parent, node.child]:
@@ -523,7 +509,7 @@ class DynamicRrtConnect:
                         continue
                     plt.plot([nextNode.x, node.x], [nextNode.y, node.y], "-b")
 
-    # 绘制新节点函数
+    # Draw new nodes function
     def plot_vertex_new(self):
         count = 0
         for node in self.vertex_new:
@@ -538,17 +524,18 @@ class DynamicRrtConnect:
                 if count % 10 == 0:
                     plt.pause(0.001)
 
-    # 绘制路径函数
+    # Draw path function
     @staticmethod
     def plot_path(path, color='red', linewidth=2):
         plt.plot([x[0] for x in path], [x[1] for x in path], linewidth=linewidth, color=color)
         plt.pause(0.01)
 
-    # 以B样条曲线绘制路径函数
+    # Plot the path function with a B-spline curve
     @staticmethod
     def plot_path_in_BSline(path, bs_degree, color='red', linewidth=2):
-        d = bs_degree    #degree, k越大，曲线越逼近原始控制点
-        t = []    #knots vector
+        d = bs_degree    # degree, The larger k is,
+                         # the closer the curve is to the original control point
+        t = []           # knots vector
         num = len(path)
 
         for i in range(num+d+1):
@@ -570,8 +557,8 @@ class DynamicRrtConnect:
 
 
 def main():
-    x_start = (2, 2)  # 起点
-    x_goal = (49, 24)  # 终点
+    x_start = (2, 2)  # start point
+    x_goal = (49, 24)  # end point
 
     drrt = DynamicRrtConnect(x_start, x_goal,
                              step_len = 0.8, goal_sample_rate = 0.05,
